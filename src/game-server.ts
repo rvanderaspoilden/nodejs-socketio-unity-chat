@@ -6,9 +6,10 @@ import {Vector3} from "./models/vector3";
 import {Utils} from "./utils";
 import {InitGameResponse} from "./models/init-game-response";
 import * as _ from 'lodash';
+import {UpdatePositionResponse} from "./models/update-position-response";
 
 export class GameServer {
-    public static readonly PORT:number = 8080;
+    public static readonly PORT: number = 8080;
     private app: express.Application;
     private server: Server;
     private io: socketIO.Server;
@@ -45,16 +46,16 @@ export class GameServer {
         });
 
         this.io.on('connect', (socket: any) => {
-            const currentUser: User = new User('undefined',"undefined", new Vector3(0,0,0), new Vector3(0,0,0));
+            const currentUser: User = new User('undefined', "undefined", new Vector3(0, 0, 0), new Vector3(0, 0, 0));
             console.log('Connected client on port %s.', this.port);
 
             socket.on('Packet::JoinGame', (data: string) => {
                 console.log(data + " joined the game");
                 currentUser.uid = socket.id;
                 currentUser.username = data;
-                currentUser.position = new Vector3(Utils.getRandomInt(10), Utils.getRandomInt(10), Utils.getRandomInt(10));
+                currentUser.position = new Vector3(Utils.getRandomInt(10), 1, Utils.getRandomInt(10));
 
-                if(this.users){
+                if (this.users) {
                     this.users.push(currentUser);
                 } else {
                     this.users = [currentUser];
@@ -62,16 +63,29 @@ export class GameServer {
 
                 const gameData = new InitGameResponse();
                 gameData.localUser = currentUser;
-                gameData.users = this.users;
+                gameData.users = {list: this.users};
 
                 console.log("Users number : " + this.users.length);
 
                 socket.emit("Packet::InitGame", gameData);
+                socket.broadcast.emit("Packet::OtherPlayerJoined", gameData.localUser);
+            });
+
+            socket.on('Packet::UpdatePosition', (data: UpdatePositionResponse) => {
+               let user = this.users.find(user => user.uid === data.uid);
+               user.position.x = data.x;
+               user.position.y = data.y;
+               user.position.z = data.z;
+
+               socket.broadcast.emit("Packet::OtherPlayerMove", data);
             });
 
             socket.on('disconnect', () => {
                 console.log(currentUser.username + ' disconnected');
+
                 this.users = _.reject(this.users, (user: User) => user.uid === currentUser.uid);
+                socket.broadcast.emit("Packet::OtherPlayerDisconnected", currentUser);
+
                 console.log("Users number : " + this.users.length);
             });
         });

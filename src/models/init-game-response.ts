@@ -2,5 +2,5 @@ import {User} from "./user";
 
 export class InitGameResponse {
     public localUser: User;
-    public users: User[];
+    public users: { list: User[] };
 }
