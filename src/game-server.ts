@@ -7,6 +7,9 @@ import {Utils} from "./utils";
 import {InitGameResponse} from "./models/init-game-response";
 import * as _ from 'lodash';
 import {UpdatePositionResponse} from "./models/update-position-response";
+import {UpdateRotationResponse} from "./models/update-rotation-response";
+import {ConnectionRequest} from "./models/connection-request";
+import {AnimationParameterResponse} from "./models/animation-parameter-response";
 
 export class GameServer {
     public static readonly PORT: number = 8080;
@@ -15,6 +18,7 @@ export class GameServer {
     private io: socketIO.Server;
     private port: string | number;
     private users: User[];
+    private spawns: Vector3[];
 
     constructor() {
         this.createApp();
@@ -46,14 +50,22 @@ export class GameServer {
         });
 
         this.io.on('connect', (socket: any) => {
-            const currentUser: User = new User('undefined', "undefined", new Vector3(0, 0, 0), new Vector3(0, 0, 0));
+            const currentUser: User = new User('undefined', "undefined", "undefined", new Vector3('0', '0', '0'), new Vector3('0', '0', '0'));
+
+            this.spawns = [
+                new Vector3('-7.1', '1.7', '0'),
+                new Vector3('-1.28', '1.7', '0'),
+                new Vector3('4.30', '1.7', '0'),
+                new Vector3('7.70', '1.7', '0')];
+
             console.log('Connected client on port %s.', this.port);
 
-            socket.on('Packet::JoinGame', (data: string) => {
-                console.log(data + " joined the game");
+            socket.on('Packet::JoinGame', (data: ConnectionRequest) => {
+                console.log(data.username + " joined the game");
                 currentUser.uid = socket.id;
-                currentUser.username = data;
-                currentUser.position = new Vector3(Utils.getRandomInt(10), 1, Utils.getRandomInt(10));
+                currentUser.username = data.username;
+                currentUser.champion = data.champion;
+                currentUser.position = this.spawns[GameServer.getRandomInt(this.spawns.length)];
 
                 if (this.users) {
                     this.users.push(currentUser);
@@ -71,13 +83,20 @@ export class GameServer {
                 socket.broadcast.emit("Packet::OtherPlayerJoined", gameData.localUser);
             });
 
-            socket.on('Packet::UpdatePosition', (data: UpdatePositionResponse) => {
-               let user = this.users.find(user => user.uid === data.uid);
-               user.position.x = data.x;
-               user.position.y = data.y;
-               user.position.z = data.z;
+            socket.on('Packet::SetAnimationParameterRequest', (data: AnimationParameterResponse) => {
+                data.uid = currentUser.uid;
+                socket.broadcast.emit("Packet::OtherPlayerDoAnimation", data);
+            });
 
-               socket.broadcast.emit("Packet::OtherPlayerMove", data);
+            socket.on('Packet::UpdatePosition', (data: UpdatePositionResponse) => {
+                let user = this.users.find(user => user.uid === currentUser.uid);
+                user.position.x = data.x.toString();
+                user.position.y = data.y.toString();
+                user.position.z = data.z.toString();
+
+                data.uid = currentUser.uid;
+
+                socket.broadcast.emit("Packet::OtherPlayerMove", data);
             });
 
             socket.on('disconnect', () => {
@@ -93,5 +112,9 @@ export class GameServer {
 
     public getApp(): express.Application {
         return this.app;
+    }
+
+    public static getRandomInt(max) {
+        return Math.floor(Math.random() * Math.floor(max));
     }
 }
