@@ -10,6 +10,7 @@ import {UpdatePositionResponse} from "./models/update-position-response";
 import {UpdateRotationResponse} from "./models/update-rotation-response";
 import {ConnectionRequest} from "./models/connection-request";
 import {AnimationParameterResponse} from "./models/animation-parameter-response";
+import { CommonUtils } from './utils/common.utils';
 
 export class GameServer {
     public static readonly PORT: number = 8080;
@@ -65,7 +66,7 @@ export class GameServer {
                 currentUser.uid = socket.id;
                 currentUser.username = data.username;
                 currentUser.champion = data.champion;
-                currentUser.position = this.spawns[GameServer.getRandomInt(this.spawns.length)];
+                currentUser.position = this.spawns[CommonUtils.getRandomInt(this.spawns.length)];
 
                 if (this.users) {
                     this.users.push(currentUser);
@@ -112,9 +113,5 @@ export class GameServer {
 
     public getApp(): express.Application {
         return this.app;
-    }
-
-    public static getRandomInt(max) {
-        return Math.floor(Math.random() * Math.floor(max));
     }
 }
