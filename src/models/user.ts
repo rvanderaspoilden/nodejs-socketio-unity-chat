@@ -5,7 +5,7 @@ export class User {
     public username: string;
     public champion: string;
     public position: Vector3;
-    public rotation: Vector3;
+    public isReady: boolean;
 
     constructor() {
     }

@@ -12,6 +12,7 @@ export class CommonUtils {
         user.uid = socketId;
         user.username = info.username;
         user.champion = info.champion;
+        user.isReady = false;
 
         return user;
     }
