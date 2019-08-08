@@ -88,10 +88,18 @@ export class GameServer {
             });
 
             socket.on('Packet::LeaveRoomRequest', () => {
-                socket.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeftRoom', new RoomResponse(currentUser, currentRoom));
+                // Clean user slot
+                currentRoom.users[currentSlotInRoom] = undefined;
+
+                // Change room status
+                currentRoom.status = RoomStatus.OPEN;
+
+                // Notify other players in room
+                socket.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeaveRoom', new RoomResponse(currentUser, currentRoom));
 
                 socket.leave(currentRoom.id);
 
+                // Reset current room variable
                 currentRoom = undefined;
                 currentSlotInRoom = undefined;
             });
