@@ -6,10 +6,12 @@ export class Room {
     public id: string;
     public users: User[];
     public status: RoomStatus;
+    public secondRemainingBeforeStart: number;
 
     constructor() {
         this.id = CommonUtils.createUUID();
         this.users = new Array<User>(4);
         this.status = RoomStatus.OPEN;
+        this.secondRemainingBeforeStart = -1;
     }
 }

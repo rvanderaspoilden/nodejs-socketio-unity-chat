@@ -11,6 +11,7 @@ import {Room} from './models/room';
 import {RoomStatus} from './models/room-status';
 import {RoomResponse} from './models/responses/room-response';
 import * as _ from 'lodash';
+import {RoomUtils} from './utils/room.utils';
 
 export class GameServer {
     public static readonly PORT: number = 8080;
@@ -59,7 +60,8 @@ export class GameServer {
                 new Vector3('-7.1', '1.7', '0'),
                 new Vector3('-1.28', '1.7', '0'),
                 new Vector3('4.30', '1.7', '0'),
-                new Vector3('7.70', '1.7', '0')];
+                new Vector3('7.70', '1.7', '0')
+            ];
 
             socket.on('Packet::JoinRoomRequest', (data: ConnectionRequest) => {
                 // Create user
@@ -69,11 +71,11 @@ export class GameServer {
                 currentRoom = this.findOrCreateRoom();
 
                 // Find available slot in room and add current user
-                currentSlotInRoom = CommonUtils.getAvailableSlotInRoom(currentRoom);
+                currentSlotInRoom = RoomUtils.getAvailableSlotInRoom(currentRoom);
                 currentRoom.users[currentSlotInRoom] = currentUser;
 
                 // Check if room is full
-                if (CommonUtils.getAvailableSlotInRoom(currentRoom) === -1) {
+                if (RoomUtils.getAvailableSlotInRoom(currentRoom) === -1) {
                     currentRoom.status = RoomStatus.FULL;
                 }
 
@@ -87,6 +89,21 @@ export class GameServer {
                 socket.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerJoinedRoom', new RoomResponse(currentUser, currentRoom));
             });
 
+            socket.on('Packet::UpdatePlayerStatusInRoomRequest', () => {
+                // Change user ready status
+                currentUser.isReady = !currentUser.isReady;
+
+                // Notify all
+                socket.emit('Packet::UpdatePlayerStatusInRoomResponse', new RoomResponse(currentUser, currentRoom));
+                socket.to(currentRoom.id).broadcast.emit('Packet::UpdateOtherPlayerStatusInRoomResponse', new RoomResponse(currentUser, currentRoom));
+
+                // Check if all players are ready to start the game
+                if (RoomUtils.hasAtLeastTwoPlayers(currentRoom) && RoomUtils.areAllPlayersReadyInRoom(currentRoom) && currentRoom.status !== RoomStatus.STARTING) {
+                    console.log("Starting...");
+                    this.startGame(currentRoom);
+                }
+            });
+
             socket.on('Packet::LeaveRoomRequest', () => {
                 // Clean user slot
                 currentRoom.users[currentSlotInRoom] = undefined;
@@ -95,7 +112,7 @@ export class GameServer {
                 currentRoom.status = RoomStatus.OPEN;
 
                 // Notify other players in room
-                socket.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeaveRoom', new RoomResponse(currentUser, currentRoom));
+                socket.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeftRoom', new RoomResponse(currentUser, currentRoom));
 
                 socket.leave(currentRoom.id);
 
@@ -130,25 +147,61 @@ export class GameServer {
                     // Send informations to all other players of the room
                     if (currentRoom.status === RoomStatus.INGAME) {
                         console.log(currentUser.username + ' remove from game');
-                        socket.broadcast.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeaveGame', currentUser);
+                        socket.broadcast.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeftGame', currentUser);
                     } else {
                         currentRoom.status = RoomStatus.OPEN;
-                        socket.broadcast.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeaveRoom', new RoomResponse(currentUser, currentRoom));
+                        socket.broadcast.to(currentRoom.id).broadcast.emit('Packet::OtherPlayerLeftRoom', new RoomResponse(currentUser, currentRoom));
                     }
 
                     // Leave socket room
                     socket.leave(currentRoom.id);
 
                     // Check if there is some one else or delete room
-                    if (CommonUtils.isEmptyRoom(currentRoom)) {
+                    if (RoomUtils.isEmptyRoom(currentRoom)) {
                         this.rooms = _.reject(this.rooms, (room: Room) => room.id === currentRoom.id);
-                        console.log("Room deleted");
+                        console.log('Room deleted');
                     }
                 }
 
                 console.log(this.rooms);
             });
         });
+    }
+
+    public startGame(room: Room): void {
+        room.status = RoomStatus.STARTING;
+
+        // Init starting counter
+        room.secondRemainingBeforeStart = 3;
+
+        // Notify all players of starting counter
+        this.io.sockets.to(room.id).emit('Packet::GameStartingResponse', new RoomResponse(null, room));
+
+        console.log(room.secondRemainingBeforeStart);
+
+        // Check each seconds if all players are still ready to continue else stop and re-open room
+        let counterInterval = setInterval(() => {
+            if (RoomUtils.areAllPlayersReadyInRoom(room)) {
+                room.secondRemainingBeforeStart = room.secondRemainingBeforeStart - 1;
+                console.log(room.secondRemainingBeforeStart);
+            } else {
+                room.status = RoomStatus.OPEN;
+                console.log("All players are not ready");
+                clearInterval(counterInterval);
+            }
+
+            this.io.sockets.to(room.id).emit('Packet::GameStartingResponse', new RoomResponse(null, room));
+
+            // Start game if counter reached 0s
+            if (room.secondRemainingBeforeStart === 0) {
+                console.log("GOOOOOOOOO");
+                room.status = RoomStatus.INGAME;
+                this.io.sockets.to(room.id).emit('Packet::StartGameResponse', new RoomResponse(null, room));
+                clearInterval(counterInterval);
+            }
+        }, 1000);
+
+        console.log(room);
     }
 
     public getApp(): express.Application {

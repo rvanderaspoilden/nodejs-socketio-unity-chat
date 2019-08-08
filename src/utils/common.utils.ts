@@ -1,7 +1,8 @@
-import { ConnectionRequest } from '../models/requests/connection-request';
-import { User } from '../models/user';
+import {ConnectionRequest} from '../models/requests/connection-request';
+import {User} from '../models/user';
 
 export class CommonUtils {
+
     public static getRandomInt(max): number {
         return Math.floor(Math.random() * Math.floor(max));
     }

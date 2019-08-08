@@ -16,6 +16,10 @@ export class RoomUtils {
     }
 
     public static areAllPlayersReadyInRoom(room: Room): boolean {
-        return room.users.findIndex((user: User) => !user.isReady) === -1;
+        return room.users.findIndex((user: User) => user && !user.isReady) === -1;
+    }
+
+    public static hasAtLeastTwoPlayers(room: Room): boolean {
+        return room.users.filter((user: User) => user).length >= 2;
     }
 }
