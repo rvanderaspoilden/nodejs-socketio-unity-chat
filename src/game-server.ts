@@ -116,6 +116,12 @@ export class GameServer {
 
                 socket.leave(currentRoom.id);
 
+                // Check if there is some one else or delete room
+                if (RoomUtils.isEmptyRoom(currentRoom)) {
+                    this.rooms = _.reject(this.rooms, (room: Room) => room.id === currentRoom.id);
+                    console.log('Room deleted');
+                }
+
                 // Reset current room variable
                 currentRoom = undefined;
                 currentSlotInRoom = undefined;
@@ -197,11 +203,10 @@ export class GameServer {
                 console.log("GOOOOOOOOO");
                 room.status = RoomStatus.INGAME;
                 this.io.sockets.to(room.id).emit('Packet::StartGameResponse', new RoomResponse(null, room));
+                console.log(room);
                 clearInterval(counterInterval);
             }
         }, 1000);
-
-        console.log(room);
     }
 
     public getApp(): express.Application {
