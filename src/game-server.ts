@@ -57,10 +57,10 @@ export class GameServer {
             let currentSlotInRoom: number;
 
             this.spawns = [
-                new Vector3('-7.1', '1.7', '0'),
-                new Vector3('-1.28', '1.7', '0'),
-                new Vector3('4.30', '1.7', '0'),
-                new Vector3('7.70', '1.7', '0')
+                new Vector3('-6.43844', '3.495037', '0'),
+                new Vector3('-2.26844', '3.495037', '0'),
+                new Vector3('1.94156', '3.495037', '0'),
+                new Vector3('5.34156', '3.495037', '0')
             ];
 
             socket.on('Packet::JoinRoomRequest', (data: ConnectionRequest) => {
@@ -73,6 +73,8 @@ export class GameServer {
                 // Find available slot in room and add current user
                 currentSlotInRoom = RoomUtils.getAvailableSlotInRoom(currentRoom);
                 currentRoom.users[currentSlotInRoom] = currentUser;
+
+                currentUser.position = this.spawns[currentSlotInRoom];
 
                 // Check if room is full
                 if (RoomUtils.getAvailableSlotInRoom(currentRoom) === -1) {
@@ -133,7 +135,6 @@ export class GameServer {
             });
 
             socket.on('Packet::UpdatePositionRequest', (data: UpdatePositionResponse) => {
-                // let user = this.users.find(user => user.uid === currentUser.uid);
                 currentUser.position.x = data.x.toString();
                 currentUser.position.y = data.y.toString();
                 currentUser.position.z = data.z.toString();
@@ -188,7 +189,9 @@ export class GameServer {
         // Check each seconds if all players are still ready to continue else stop and re-open room
         let counterInterval = setInterval(() => {
             if (RoomUtils.areAllPlayersReadyInRoom(room)) {
+                room.status = RoomStatus.STARTING;
                 room.secondRemainingBeforeStart = room.secondRemainingBeforeStart - 1;
+                console.log(room);
                 console.log(room.secondRemainingBeforeStart);
             } else {
                 room.status = RoomStatus.OPEN;

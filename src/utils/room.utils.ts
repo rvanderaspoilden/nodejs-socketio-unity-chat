@@ -20,6 +20,6 @@ export class RoomUtils {
     }
 
     public static hasAtLeastTwoPlayers(room: Room): boolean {
-        return room.users.filter((user: User) => user).length >= 2;
+        return room.users.filter((user: User) => user).length >= 1;
     }
 }
