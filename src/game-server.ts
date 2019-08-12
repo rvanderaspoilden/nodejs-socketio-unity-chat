@@ -12,6 +12,9 @@ import {RoomStatus} from './models/room-status';
 import {RoomResponse} from './models/responses/room-response';
 import * as _ from 'lodash';
 import {RoomUtils} from './utils/room.utils';
+import { PunchRequest } from './models/requests/punch-request';
+import { UserUtils } from './utils/user-utils';
+import { KillResponse } from './models/kill-response';
 
 export class GameServer {
     public static readonly PORT: number = 8080;
@@ -65,7 +68,7 @@ export class GameServer {
 
             socket.on('Packet::JoinRoomRequest', (data: ConnectionRequest) => {
                 // Create user
-                currentUser = CommonUtils.createUser(socket.id, data);
+                currentUser = UserUtils.createUser(socket.id, data);
 
                 // Retrieve a room
                 currentRoom = this.findOrCreateRoom();
@@ -103,6 +106,29 @@ export class GameServer {
                 if (RoomUtils.hasAtLeastTwoPlayers(currentRoom) && RoomUtils.areAllPlayersReadyInRoom(currentRoom) && currentRoom.status !== RoomStatus.STARTING) {
                     console.log("Starting...");
                     this.startGame(currentRoom);
+                }
+            });
+
+            socket.on('Packet::PunchRequest', (request: PunchRequest) => {
+                const user: User = currentRoom.users.find((user: User) => user.uid === request.targetUserId);
+
+                const remainingLife: number = Number(user.life) - Number(request.damageAmount);
+                user.life =  remainingLife.toString();
+                user.hitBy = currentUser.uid;
+
+                console.log(user.username + " punched by " + currentUser.username + " => " + user.life + "/100");
+
+                if(user.isDead()){
+                    UserUtils.kill(user, currentUser);
+                    console.log(currentUser.username + " killed " + user.username);
+
+                    // Notify all
+                    socket.emit('Packet::KillPlayerInGame', new KillResponse(user, currentUser));
+                    socket.to(currentRoom.id).broadcast.emit('Packet::KillPlayerInGame', new KillResponse(user, currentUser));
+                } else {
+                    // Notify all
+                    socket.emit('Packet::UpdatePlayerInGame', user);
+                    socket.to(currentRoom.id).broadcast.emit('Packet::UpdatePlayerInGame', user);
                 }
             });
 

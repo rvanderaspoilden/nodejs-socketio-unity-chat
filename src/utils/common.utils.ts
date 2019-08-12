@@ -1,20 +1,7 @@
-import {ConnectionRequest} from '../models/requests/connection-request';
-import {User} from '../models/user';
-
 export class CommonUtils {
 
     public static getRandomInt(max): number {
         return Math.floor(Math.random() * Math.floor(max));
-    }
-
-    public static createUser(socketId: string, info: ConnectionRequest): User {
-        const user = new User();
-        user.uid = socketId;
-        user.username = info.username;
-        user.champion = info.champion;
-        user.isReady = false;
-
-        return user;
     }
 
     public static createUUID(): string {
