@@ -6,6 +6,8 @@ export class User {
     public champion: string;
     public position: Vector3;
     public isReady: boolean;
+    public isInstantiated: boolean;
+    public isDead: boolean;
     public life: string;
     public hitBy: string;
     public kills: string;
@@ -16,9 +18,5 @@ export class User {
 
     public isAlive(): boolean {
         return Number(this.life) > 0;
-    }
-
-    public isDead(): boolean {
-        return Number(this.life) <= 0;
     }
 }

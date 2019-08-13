@@ -1,8 +1,10 @@
 import { User } from '../models/user';
 import {ConnectionRequest} from "../models/requests/connection-request";
+import { Room } from '../models/room';
 
 export class UserUtils {
     public static kill(target: User, killer: User): void {
+        target.isDead = true;
         target.deads = target.deads + 1;
         killer.kills = killer.kills + 1;
     }
@@ -19,5 +21,9 @@ export class UserUtils {
         user.life = "100";
 
         return user;
+    }
+
+    public static areAllUsersInstantiated(users: User[]): boolean {
+        return users.every((user: User) => user.isInstantiated);
     }
 }

@@ -6,15 +6,15 @@ import {Vector3} from './models/vector3';
 import {UpdatePositionResponse} from './models/update-position-response';
 import {ConnectionRequest} from './models/requests/connection-request';
 import {AnimationParameterResponse} from './models/animation-parameter-response';
-import {CommonUtils} from './utils/common.utils';
 import {Room} from './models/room';
 import {RoomStatus} from './models/room-status';
 import {RoomResponse} from './models/responses/room-response';
 import * as _ from 'lodash';
 import {RoomUtils} from './utils/room.utils';
-import { PunchRequest } from './models/requests/punch-request';
-import { UserUtils } from './utils/user-utils';
-import { KillResponse } from './models/kill-response';
+import {PunchRequest} from './models/requests/punch-request';
+import {UserUtils} from './utils/user-utils';
+import {PunchResponse} from "./models/responses/punch-response";
+import {KillResponse} from "./models/responses/kill-response";
 
 export class GameServer {
     public static readonly PORT: number = 8080;
@@ -109,26 +109,34 @@ export class GameServer {
                 }
             });
 
+            socket.on('Packet::PlayerInstantiatedInGame', () => {
+                currentUser.isInstantiated = true;
+
+                if (UserUtils.areAllUsersInstantiated(currentRoom.users)) {
+                    this.io.sockets.to(currentRoom.id).emit("Packet::StartFight");
+                }
+            });
+
             socket.on('Packet::PunchRequest', (request: PunchRequest) => {
                 const user: User = currentRoom.users.find((user: User) => user.uid === request.targetUserId);
 
                 const remainingLife: number = Number(user.life) - Number(request.damageAmount);
-                user.life =  remainingLife.toString();
+                user.life = remainingLife.toString();
                 user.hitBy = currentUser.uid;
+
+                console.log(request);
 
                 console.log(user.username + " punched by " + currentUser.username + " => " + user.life + "/100");
 
-                if(user.isDead()){
+                if (!user.isAlive()) {
                     UserUtils.kill(user, currentUser);
                     console.log(currentUser.username + " killed " + user.username);
 
                     // Notify all
-                    socket.emit('Packet::KillPlayerInGame', new KillResponse(user, currentUser));
-                    socket.to(currentRoom.id).broadcast.emit('Packet::KillPlayerInGame', new KillResponse(user, currentUser));
+                    this.io.sockets.to(currentRoom.id).emit('Packet::KillPlayerInGame', new KillResponse(user, currentRoom, request.direction));
                 } else {
                     // Notify all
-                    socket.emit('Packet::UpdatePlayerInGame', user);
-                    socket.to(currentRoom.id).broadcast.emit('Packet::UpdatePlayerInGame', user);
+                    this.io.sockets.to(currentRoom.id).emit('Packet::PunchResponse', new PunchResponse(user, currentRoom, request.direction));
                 }
             });
 
